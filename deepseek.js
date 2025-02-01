@@ -1,5 +1,7 @@
 import OpenAI from "openai";
+import common from '../../lib/common/common.js'
 let groupMessages = []
+let model_type = 'deepseek-reasoner' //可选deepseek-chat(V3)
 const openai = new OpenAI({
         baseURL: 'https://api.deepseek.com',
         apiKey: 'YOUR-API-KEY'
@@ -59,19 +61,18 @@ export class DeepSeek extends plugin {
             groupMessages[e.group_id] = []
         }
         groupMessages[e.group_id].push({ role: "user", content: `用户名:${e.sender.nickname}，userid:${e.user_id}说：${msg}` })
-        if (groupMessages[e.group_id].length > 2 * maxLength + 1) {
+        if (groupMessages[e.group_id].length > 2 * maxLength + 1 ) {
             groupMessages[e.group_id] = groupMessages[e.group_id].slice(groupMessages[e.group_id].length - 2 * maxLength - 1)
         }
-        let modifiedGroupMessages = groupMessages[e.group_id].map(msg => ({ ...msg }))
-        //不存储聊天记录，节省token，提高缓存命中率
+        //let modifiedGroupMessages = groupMessages[e.group_id].map(msg => ({ ...msg }))
         if (historyLength > 0) {
             groupChatHistroy = await e.bot.pickGroup(e.group_id, true).getChatHistory(0, maxLength)
-            modifiedGroupMessages[modifiedGroupMessages.length - 1].content += '以下是群里的近期聊天记录供参考：' + this.formatGroupChatHistory(groupChatHistroy)
-            //prompt[0].content += '以下是群里的近期聊天记录：' + this.formatGroupChatHistory(groupChatHistroy)
+            //modifiedGroupMessages[modifiedGroupMessages.length - 1].content += '以下是群里的近期聊天记录供参考：' + this.formatGroupChatHistory(groupChatHistroy)
+            prompt[0].content += '以下是群里的近期聊天记录：' + this.formatGroupChatHistory(groupChatHistroy)
         }
         await this.sendChat(e, [
             ...prompt,
-            ...modifiedGroupMessages
+            ...groupMessages[e.group_id]
         ], temperature)
     }
     async reset(e) {
@@ -82,9 +83,8 @@ export class DeepSeek extends plugin {
         let completion = await openai.chat.completions.create({
             messages: [
                 ...prompt,
-                ...groupMessages[e.group_id]
             ],
-            model: "deepseek-chat",
+            model: model_type,
             temperature: temperature,
             frequency_penalty: 0.2,
             presence_penalty: 0.2,
@@ -92,6 +92,12 @@ export class DeepSeek extends plugin {
             //tool_choice: "auto"
         })
         let originalRetMsg = completion.choices[0].message.content
+        let thinking = completion.choices[0].message.reasoning_content
+        if (thinking) {
+            await this.dealMessage(e, thinking)
+            e.reply(thinking)
+            await common.sleep(1000)
+        }
         let matches = await this.dealMessage(e, originalRetMsg)
         //matches.push(`\ntoken消耗:${JSON.stringify(completion.usage)}`)
         e.reply(matches)
