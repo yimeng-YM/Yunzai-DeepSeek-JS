@@ -82,7 +82,6 @@ export class DeepSeek extends plugin {
         e.reply('重置对话完毕')
     }
     async sendChat(e, prompt, temperature, msg) {
-        logger.error(prompt)
         let completion
         try {
             completion = await openai.chat.completions.create({
