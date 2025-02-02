@@ -90,7 +90,7 @@ export class DeepSeek extends plugin {
                     msg
                 ],
                 model: model_type,
-                temperature: temperature,
+                temperature: parseFloat(temperature),
                 frequency_penalty: 0.2,
                 presence_penalty: 0.2,
                 //tools: tools,
