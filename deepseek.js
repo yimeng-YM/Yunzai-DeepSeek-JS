@@ -121,7 +121,7 @@ export class DeepSeek extends plugin {
     }
     async setTemperature(e) {
         let temperature = e.msg.replace('#deepseek设置温度', '').trim()
-        redis.set('deepseekJS:prompt', temperature)
+        redis.set('deepseekJS:temperature', temperature)
         e.reply('设置成功')
     }
     async dealMessage(e, originalRetMsg) {
