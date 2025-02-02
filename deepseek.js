@@ -60,37 +60,48 @@ export class DeepSeek extends plugin {
         if (!Array.isArray(groupMessages[e.group_id])) {
             groupMessages[e.group_id] = []
         }
-        groupMessages[e.group_id].push({ role: "user", content: `用户名:${e.sender.nickname}，userid:${e.user_id}说：${msg}` })
-        if (groupMessages[e.group_id].length > 2 * maxLength + 1 ) {
-            groupMessages[e.group_id] = groupMessages[e.group_id].slice(groupMessages[e.group_id].length - 2 * maxLength - 1)
+        if (groupMessages[e.group_id].length > 2 * maxLength) {
+            groupMessages[e.group_id] = groupMessages[e.group_id].slice(groupMessages[e.group_id].length - 2 * maxLength)
         }
-        //let modifiedGroupMessages = groupMessages[e.group_id].map(msg => ({ ...msg }))
         if (historyLength > 0) {
             groupChatHistroy = await e.bot.pickGroup(e.group_id, true).getChatHistory(0, maxLength)
-            //modifiedGroupMessages[modifiedGroupMessages.length - 1].content += '以下是群里的近期聊天记录供参考：' + this.formatGroupChatHistory(groupChatHistroy)
             prompt[0].content += '以下是群里的近期聊天记录：' + this.formatGroupChatHistory(groupChatHistroy)
         }
-        await this.sendChat(e, [
-            ...prompt,
-            ...groupMessages[e.group_id]
-        ], temperature)
+        await this.sendChat(
+            e,
+            [
+                ...prompt,
+                ...groupMessages[e.group_id]
+            ],
+            temperature,
+            { role: "user", content: `用户名:${e.sender.nickname}，userid:${e.user_id}说：${msg}` }
+        )
     }
     async reset(e) {
         groupMessages[e.group_id] = ''
         e.reply('重置对话完毕')
     }
-    async sendChat(e, prompt, temperature) {
-        let completion = await openai.chat.completions.create({
-            messages: [
-                ...prompt,
-            ],
-            model: model_type,
-            temperature: temperature,
-            frequency_penalty: 0.2,
-            presence_penalty: 0.2,
-            //tools: tools,
-            //tool_choice: "auto"
-        })
+    async sendChat(e, prompt, temperature, msg) {
+        logger.error(prompt)
+        let completion
+        try {
+            completion = await openai.chat.completions.create({
+                messages: [
+                    ...prompt,
+                    msg
+                ],
+                model: model_type,
+                temperature: temperature,
+                frequency_penalty: 0.2,
+                presence_penalty: 0.2,
+                //tools: tools,
+                //tool_choice: "auto"
+            })
+        } catch (error) {
+            logger.error(error)
+            e.reply('AI对话请求发送失败，请检查日志')
+            return true
+        }
         let originalRetMsg = completion.choices[0].message.content
         let thinking = completion.choices[0].message.reasoning_content
         if (thinking) {
@@ -99,8 +110,8 @@ export class DeepSeek extends plugin {
             await common.sleep(1000)
         }
         let matches = await this.dealMessage(e, originalRetMsg)
-        //matches.push(`\ntoken消耗:${JSON.stringify(completion.usage)}`)
         e.reply(matches)
+        groupMessages[e.group_id].push(msg)
         groupMessages[e.group_id].push(completion.choices[0].message)
 
     }
