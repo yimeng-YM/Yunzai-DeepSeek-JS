@@ -111,7 +111,7 @@ export class DeepSeek extends plugin {
         let matches = await this.dealMessage(e, originalRetMsg)
         e.reply(matches)
         groupMessages[e.group_id].push(msg)
-        groupMessages[e.group_id].push(completion.choices[0].message)
+        groupMessages[e.group_id].push({'role': 'assistant', 'content': completion.choices[0].message.content})
 
     }
     async setMaxLength(e) {
